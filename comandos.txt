@@ -1,0 +1,63 @@
+COMANDOS PARA CORRER LAS PRUEBAS - Pruebas-Dentos
+====================================================
+
+Antes de nada: abre la terminal en VS Code (Terminal > Nueva Terminal)
+y asegúrate de estar parado en la carpeta "Pruebas-Dentos".
+
+
+CONFIGURACIÓN INICIAL (solo la primera vez, o en un equipo nuevo)
+----------------------------------------------------------------------
+1. Instala esta librería adicional (lee el archivo .env):
+   pip install python-dotenv
+
+2. Crea un archivo llamado ".env" en esta misma carpeta con este
+   contenido (reemplaza por tus credenciales reales si son distintas):
+
+   DENTOS_USUARIO=krixy
+   DENTOS_PASSWORD=121212
+   DENTOS_SUCURSAL=Bucaramanga
+
+   Este archivo NO se sube a GitHub (está en .gitignore), así que cada
+   persona que use el proyecto debe crear el suyo.
+
+
+CORRER TODAS LAS PRUEBAS (las 15)
+----------------------------------
+python -m pytest -v --headed
+
+
+CORRER SOLO LA PRUEBA DEL ANTICIPO (ya funciona, PASSED)
+----------------------------------------------------------
+python -m pytest test_plan_tratamiento.py::test_crear_anticipo_plan_tratamiento -v --headed
+
+
+CORRER UN ARCHIVO COMPLETO
+----------------------------------
+python -m pytest test_facturacion.py -v --headed
+python -m pytest test_copagos.py -v --headed
+python -m pytest test_cotizaciones.py -v --headed
+python -m pytest test_impresion.py -v --headed
+python -m pytest test_plan_tratamiento.py -v --headed
+
+
+CORRER SIN VER EL NAVEGADOR (más rápido)
+----------------------------------------------------------
+Quita "--headed" del final de cualquier comando de arriba.
+
+
+SI UNA PRUEBA FALLA Y QUIERES VER EN QUÉ PANTALLA QUEDÓ ATASCADA
+--------------------------------------------------------------------
+Agrega al final: --screenshot=only-on-failure
+Ejemplo:
+python -m pytest test_plan_tratamiento.py::test_crear_anticipo_plan_tratamiento -v --headed --screenshot=only-on-failure
+
+Luego busca la carpeta "test-results" en el Explorador de VS Code,
+y abre el archivo .png más reciente.
+
+
+SI NECESITAS GRABAR LOS PASOS DE UNA PRUEBA NUEVA
+----------------------------------------------------------
+python -m playwright codegen https://release.dentos.co/auth/login
+
+(Esto abre un navegador y va generando el código Python de cada clic
+que hagas, en una ventana aparte llamada "Playwright Inspector".)

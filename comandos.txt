@@ -31,6 +31,16 @@ CORRER SOLO LA PRUEBA DEL ANTICIPO (ya funciona, PASSED)
 python -m pytest test_plan_tratamiento.py::test_crear_anticipo_plan_tratamiento -v --headed
 
 
+CORRER SOLO LA PRUEBA DE GENERAR FACTURA DESCONTANDO ANTICIPO (ya funciona, PASSED)
+--------------------------------------------------------------------------------------
+python -m pytest test_plan_tratamiento.py::test_generar_factura_descontando_anticipo -v --headed
+
+
+CORRER SOLO LA PRUEBA DE FACTURA CON 2 FORMAS DE PAGO (ya funciona, PASSED)
+----------------------------------------------------------------------------
+python -m pytest test_facturacion.py::test_factura_dos_formas_pago -v --headed
+
+
 CORRER UN ARCHIVO COMPLETO
 ----------------------------------
 python -m pytest test_facturacion.py -v --headed

@@ -61,3 +61,12 @@ python -m playwright codegen https://release.dentos.co/auth/login
 
 (Esto abre un navegador y va generando el código Python de cada clic
 que hagas, en una ventana aparte llamada "Playwright Inspector".)
+=== Flujo para subir cambios a GitHub ===
+
+git add .
+git commit -m "Descripción de lo que agregaste"
+git push
+
+=== Notas ===
+- Repite esto cada vez que avances en las pruebas.
+- El mensaje del commit debe describir brevemente qué cambió.

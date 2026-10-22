@@ -10,38 +10,57 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
+# Texto que muestra la app cuando ya no queda saldo: "$ 0.00".
+# OJO: no se puede verificar con to_contain_text("0.00"), porque
+# "$ 80,000.00" o "$ 40,000.00" también contienen "0.00" y la prueba
+# pasaría aunque el pago no se hubiera completado.
+PENDIENTE_EN_CERO = re.compile(r"^\s*\$\s*0(\.0+)?\s*$")
 
-def test_factura_dos_formas_pago(pagina_con_paciente_alt: Page):
+
+def _leer_monto(texto: str) -> int:
+    """Convierte un texto como '$ 80,000.00' en el entero 80000."""
+    coincidencia = re.search(r"([\d,]+)", texto.split("$")[-1])
+    assert coincidencia is not None, f"No se encontró un monto en: {texto!r}"
+    return int(coincidencia.group(1).replace(",", ""))
+
+
+def _regex_monto(valor: int) -> "re.Pattern[str]":
+    """Regex que acepta SOLO el monto exacto: '$ 72,000.00', '$72,000'..."""
+    formateado = f"{valor:,}"
+    return re.compile(rf"^\s*\$\s*{re.escape(formateado)}(\.0+)?\s*$")
+
+
+def _crear_procedimiento_y_abrir_pago(page: Page) -> None:
     """
-    #1 - Desde el plan de tto se cancela factura usando doble forma de pago.
-
-    Crea su propio procedimiento con saldo pendiente (para no depender
-    de datos de corridas anteriores), y lo paga dividiendo el valor
-    entre 2 formas de pago distintas (Efectivo y Cheque).
+    Deja abierta la ventana "Realizar Pago" con un procedimiento recién
+    creado (RESINA FOTOCURADO (2 SUPERFICIES)), con todo su saldo
+    pendiente. Así cada prueba no depende de datos de corridas anteriores.
     """
-    page = pagina_con_paciente_alt
-
     page.locator("#pt").click()
     page.get_by_role("button", name="Crear Plan de tratamiento (").click()
 
-    # El diálogo de confirmación con el tipo de afiliación (Particular)
-    # solo aparece a veces (ver limitación conocida documentada en
-    # test_plan_tratamiento.py).
-    boton_aceptar = page.get_by_role("button", name="Aceptar")
-    try:
-        expect(boton_aceptar).to_be_visible(timeout=3000)
+    # Tras pulsar "Crear Plan de tratamiento" puede salir primero la
+    # ventana "Seleccione un doctor" (con Aceptar) o, si no sale, abrirse
+    # directo el plan. Antes se esperaba el botón solo 3 s y, si la ventana
+    # tardaba más, la prueba la ignoraba y se quedaba esperando un campo
+    # que todavía no existía. Ahora se espera (hasta 30 s) lo PRIMERO que
+    # aparezca: la ventana del doctor o el campo "Procedimiento".
+    boton_aceptar = page.get_by_role("button", name="Aceptar", exact=True)
+    campo_procedimiento = page.locator("#cb_proc")
+    boton_aceptar.or_(campo_procedimiento).first.wait_for(
+        state="visible", timeout=30000
+    )
+    if boton_aceptar.is_visible():
         boton_aceptar.click()
+        # Si la afiliación no quedó en "Particular", se corrige.
         campo_contrato = page.locator('input[name="cb_contrato"]')
         if campo_contrato.input_value() != "Particular":
             campo_contrato.click()
             opcion_particular = page.get_by_text("Particular", exact=True)
             expect(opcion_particular).to_be_visible(timeout=10000)
             opcion_particular.click()
-    except AssertionError:
-        pass  # El paciente ya tenía un plan; no hizo falta el diálogo.
 
     # Crear un procedimiento nuevo con saldo pendiente garantizado.
-    campo_procedimiento = page.locator("#cb_proc")
     campo_procedimiento.click()
     campo_procedimiento.fill("resina fotocurado")
     campo_procedimiento.press("Backspace")
@@ -53,9 +72,10 @@ def test_factura_dos_formas_pago(pagina_con_paciente_alt: Page):
     expect(opcion_procedimiento).to_be_visible(timeout=10000)
     opcion_procedimiento.click()
 
-    campo_cantidad = page.locator("#ext-comp-1065")
-    campo_cantidad.click()
-    campo_cantidad.fill("1")
+    # Se ubican por "name" (estable) y no por el id autogenerado de
+    # ExtJS (#ext-comp-NNNN), que cambia si cambia la pantalla.
+    page.locator('input[name="tf_cantidad"]').fill("1")
+    page.locator('input[name="tf_dientes"]').fill("1")
 
     page.locator("button.btn_add").click()
 
@@ -75,6 +95,20 @@ def test_factura_dos_formas_pago(pagina_con_paciente_alt: Page):
     fila_procedimiento.locator('input[name="procedimientoRowSelected"]').check()
 
     page.get_by_role("button", name="Abonar a procedimiento").click()
+    expect(page.locator("#valorapagar1")).to_be_visible(timeout=10000)
+
+
+def test_factura_dos_formas_pago(pagina_con_paciente_alt: Page):
+    """
+    #1 - Desde el plan de tto se cancela factura usando doble forma de pago.
+
+    Crea su propio procedimiento con saldo pendiente (para no depender
+    de datos de corridas anteriores), y lo paga dividiendo el valor
+    entre 2 formas de pago distintas (Efectivo y Cheque).
+    """
+    page = pagina_con_paciente_alt
+
+    _crear_procedimiento_y_abrir_pago(page)
 
     # Leer el valor total pendiente para dividirlo entre las 2 formas
     # de pago.
@@ -179,20 +213,82 @@ def test_factura_dos_formas_pago(pagina_con_paciente_alt: Page):
     except AssertionError:
         pass
 
-    # Verificar que la factura quedó totalmente pagada (Pendiente: $0).
-    # Se apunta al id del elemento en vez de al texto completo, ya que
-    # la app inserta un espacio entre "$" y el número (formatMoney).
-    expect(page.locator("#labelPendiente")).to_contain_text(
-        "0.00", timeout=10000
+    # Verificar que la factura quedó totalmente pagada (Pendiente: $ 0.00).
+    # Se apunta al id del elemento (la app inserta un espacio entre "$" y
+    # el número) y se exige que el texto sea EXACTAMENTE cero.
+    expect(page.locator("#labelPendiente")).to_have_text(
+        PENDIENTE_EN_CERO, timeout=10000
     )
 
 
-def test_factura_aplicar_descuento(pagina_con_paciente: Page):
+def test_factura_aplicar_descuento(pagina_con_paciente_alt: Page):
     """
     #2 - Se cancela factura aplicando descuento al procedimiento.
+
+    Crea su propio procedimiento con saldo pendiente, aplica un descuento
+    del 10% desde la ventana de pago, y paga con Efectivo el valor que
+    queda después del descuento. Verifica que el pendiente quede en $ 0.00.
     """
-    page = pagina_con_paciente
-    pytest.skip("Pendiente: grabar pasos reales con Codegen")
+    page = pagina_con_paciente_alt
+
+    _crear_procedimiento_y_abrir_pago(page)
+
+    # Se trabaja dentro de la ventana "Realizar Pago": en la pantalla hay
+    # DOS botones "Aplicar descuento" (uno en la página y otro en la
+    # ventana) y el nombre solo cambia en mayúsculas.
+    ventana_pago = page.locator(".x-window").filter(
+        has=page.locator('input[name="tf_valorapagar1"]')
+    )
+    valor_total = _leer_monto(ventana_pago.locator("#valorapagar1").inner_text())
+    assert valor_total > 0, f"Valor restante inválido: {valor_total}"
+
+    descuento = valor_total // 10
+    a_pagar = valor_total - descuento
+    assert descuento > 0, f"Descuento inválido para el total {valor_total}"
+
+    # --- Aplicar el descuento ---
+    ventana_pago.get_by_role("button", name="Aplicar descuento", exact=True).click()
+
+    ventana_descuento = page.locator(".x-window").filter(
+        has=page.locator('input[name="tf_valorDescuento"]')
+    )
+    expect(ventana_descuento).to_be_visible(timeout=10000)
+    ventana_descuento.locator('input[name="tf_valorDescuento"]').fill(str(descuento))
+    ventana_descuento.locator('textarea[name="tf_detalleDescuento"]').fill(
+        "Descuento de prueba automatizada"
+    )
+    ventana_descuento.get_by_role("button", name="Aplicar", exact=True).click()
+    expect(ventana_descuento).to_be_hidden(timeout=10000)
+
+    # La ventana de pago debe reflejar el descuento y el nuevo restante.
+    expect(ventana_pago.locator("#valordescuento")).to_have_text(
+        _regex_monto(descuento), timeout=10000
+    )
+    expect(ventana_pago.locator("#valorapagar1")).to_have_text(
+        _regex_monto(a_pagar), timeout=10000
+    )
+
+    # --- Pagar lo que queda después del descuento (Efectivo, por defecto) ---
+    # Al aplicar el descuento la app limpia "Valor a Pagar", hay que llenarlo.
+    campo_valor_1 = page.locator('input[name="tf_valorapagar1"]')
+    campo_valor_1.click()
+    campo_valor_1.fill(str(a_pagar))
+    expect(campo_valor_1).to_have_value(str(a_pagar))
+
+    ventana_pago.get_by_role("button", name="Pagar", exact=True).click()
+
+    # Diálogo opcional "Seguimiento al paciente".
+    boton_cancelar_seguimiento = page.get_by_role("button", name="Cancelar")
+    try:
+        expect(boton_cancelar_seguimiento).to_be_visible(timeout=5000)
+        boton_cancelar_seguimiento.click()
+    except AssertionError:
+        pass
+
+    # Con descuento + pago el procedimiento debe quedar sin saldo.
+    expect(page.locator("#labelPendiente")).to_have_text(
+        PENDIENTE_EN_CERO, timeout=10000
+    )
 
 
 def test_factura_por_empresa(pagina_con_paciente: Page):

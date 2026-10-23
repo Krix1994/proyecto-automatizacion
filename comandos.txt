@@ -26,6 +26,14 @@ CORRER TODAS LAS PRUEBAS (las 15)
 python -m pytest -v --headed
 
 
+CORRER SOLO LA PRUEBA DE CREAR PLAN DE TRATAMIENTO (ya funciona, PASSED)
+----------------------------------------------------------------------------
+python -m pytest test_plan_tratamiento.py::test_crear_plan_tratamiento -v --headed
+
+(Crea un plan, deja el contrato en "Particular" y agrega el procedimiento
+NUCLEO ADHESIVO.)
+
+
 CORRER SOLO LA PRUEBA DEL ANTICIPO (ya funciona, PASSED)
 ----------------------------------------------------------
 python -m pytest test_plan_tratamiento.py::test_crear_anticipo_plan_tratamiento -v --headed
@@ -57,16 +65,16 @@ sistema. Si se quiere usar otra empresa, se cambian EMPRESA_BUSQUEDA y
 EMPRESA_NOMBRE al inicio de test_facturacion.py.)
 
 
-CORRER LAS 5 PRUEBAS QUE YA FUNCIONAN (tarda varios minutos)
+CORRER LAS 6 PRUEBAS QUE YA FUNCIONAN (tarda unos 4 minutos)
 ----------------------------------------------------------------------------
-python -m pytest test_plan_tratamiento.py::test_crear_anticipo_plan_tratamiento test_plan_tratamiento.py::test_generar_factura_descontando_anticipo test_facturacion.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
+python -m pytest test_plan_tratamiento.py test_facturacion.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
+
+(test_plan_tratamiento.py tiene 3 pruebas y test_facturacion.py otras 3.)
 
 Cuando vuelva a aparecer "PS C:\...>", ver el resultado de cada una:
 Select-String -Path salida.txt -Pattern "PASSED|FAILED|ERROR|passed|failed"
 
-Debe terminar con "5 passed". Si una sale en ERROR "at setup" y la
-pantalla quedó en el login, es el problema intermitente de entrada:
-repetir SOLO esa prueba.
+Debe terminar con "6 passed".
 
 
 CORRER UN ARCHIVO COMPLETO
@@ -99,6 +107,18 @@ Agrega al final del comando:   > salida.txt 2>&1
 (la terminal no mostrará nada mientras corre; esperar a que vuelva "PS C:\...>")
 Luego ver el final del resultado:
 Get-Content salida.txt -Tail 8
+
+
+SI LA PRUEBA FALLA EN EL LOGIN (pantalla de "Usuario / Contraseña")
+----------------------------------------------------------------------------
+Es un problema intermitente de entrada. conftest.py ya reintenta el
+login hasta 3 veces antes de rendirse. Si aun así falla:
+1. Cerrar los Chromium que hayan quedado colgados (Administrador de
+   tareas: Ctrl+Shift+Esc).
+2. Repetir SOLO esa prueba.
+3. Si vuelve a fallar, el error trae la URL y el texto que mostraba la
+   página de login: ver con
+   Select-String -Path salida.txt -Pattern "Login sin completar|No se pudo iniciar sesión"
 
 
 SI NECESITAS GRABAR LOS PASOS DE UNA PRUEBA NUEVA

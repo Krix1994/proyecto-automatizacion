@@ -57,13 +57,23 @@ def _crear_procedimiento_y_abrir_pago(page: Page) -> None:
     )
     if boton_aceptar.is_visible():
         boton_aceptar.click()
-        # Si la afiliación no quedó en "Particular", se corrige.
+        # Si el contrato no quedó en "Particular", se corrige. Al abrirse la
+        # pantalla del plan el campo está vacío unos instantes mientras
+        # carga el contrato. Antes se leía en ese momento, parecía distinto
+        # de "Particular" y se volvía a seleccionar "Particular" cuando ya
+        # lo estaba: el sistema respondía "No se pudo actualizar el
+        # contrato..." (el mensaje de error intermitente). Por eso primero
+        # se espera a que el campo tenga su valor.
         campo_contrato = page.locator('input[name="cb_contrato"]')
+        expect(campo_contrato).not_to_have_value("", timeout=30000)
         if campo_contrato.input_value() != "Particular":
             campo_contrato.click()
-            opcion_particular = page.get_by_text("Particular", exact=True)
+            opcion_particular = page.locator(".x-combo-list-item").filter(
+                has_text=re.compile(r"^\s*Particular\s*$")
+            )
             expect(opcion_particular).to_be_visible(timeout=10000)
             opcion_particular.click()
+            expect(campo_contrato).to_have_value("Particular", timeout=10000)
 
     # Crear un procedimiento nuevo con saldo pendiente garantizado.
     campo_procedimiento.click()

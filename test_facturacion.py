@@ -7,7 +7,6 @@ Casos cubiertos:
 """
 
 import re
-import pytest
 from playwright.sync_api import Page, expect
 
 # Texto que muestra la app cuando ya no queda saldo: "$ 0.00".
@@ -15,6 +14,12 @@ from playwright.sync_api import Page, expect
 # "$ 80,000.00" o "$ 40,000.00" también contienen "0.00" y la prueba
 # pasaría aunque el pago no se hubiera completado.
 PENDIENTE_EN_CERO = re.compile(r"^\s*\$\s*0(\.0+)?\s*$")
+
+# Empresa (tercero) que YA existe en el sistema y se usa en "Facturar por
+# empresa". Se busca escribiendo EMPRESA_BUSQUEDA (mínimo 3 letras) en el
+# campo Nit y se elige de la lista la opción EMPRESA_NOMBRE (NIT + nombre).
+EMPRESA_BUSQUEDA = "YOMAU"
+EMPRESA_NOMBRE = "9002348999 YOMAUTOS"
 
 
 def _leer_monto(texto: str) -> int:
@@ -291,9 +296,60 @@ def test_factura_aplicar_descuento(pagina_con_paciente_alt: Page):
     )
 
 
-def test_factura_por_empresa(pagina_con_paciente: Page):
+def test_factura_por_empresa(pagina_con_paciente_alt: Page):
     """
     #3 - Se cancela factura generándola a nombre de un tercero (empresa).
+
+    Crea su propio procedimiento con saldo pendiente, pulsa "Facturar por
+    empresa", elige la empresa EMPRESA_NOMBRE en el campo Nit y paga todo
+    el valor en Efectivo. Verifica que el pendiente quede en $ 0.00.
     """
-    page = pagina_con_paciente
-    pytest.skip("Pendiente: grabar pasos reales con Codegen")
+    page = pagina_con_paciente_alt
+
+    _crear_procedimiento_y_abrir_pago(page)
+
+    ventana_pago = page.locator(".x-window").filter(
+        has=page.locator('input[name="tf_valorapagar1"]')
+    )
+    valor_total = _leer_monto(ventana_pago.locator("#valorapagar1").inner_text())
+    assert valor_total > 0, f"Valor restante inválido: {valor_total}"
+
+    # --- Elegir la empresa a la que se factura ---
+    ventana_pago.get_by_role("button", name="Facturar por empresa", exact=True).click()
+    campo_nit = ventana_pago.locator('input[name="cb_nit_add"]')
+    expect(campo_nit).to_be_visible(timeout=10000)
+
+    # La lista de empresas se carga mientras se escribe (hay que teclear
+    # letra por letra: con fill() la app no lanza la búsqueda). Y hay que
+    # ELEGIR la opción de la lista: si solo se escribe, el campo se borra
+    # al salir y no queda ninguna empresa seleccionada.
+    campo_nit.click()
+    campo_nit.press_sequentially(EMPRESA_BUSQUEDA, delay=100)
+    opcion_empresa = page.locator(".x-combo-list-item").filter(
+        has_text=re.compile(rf"^\s*{re.escape(EMPRESA_NOMBRE)}\s*$")
+    )
+    expect(opcion_empresa).to_be_visible(timeout=15000)
+    opcion_empresa.click()
+    expect(campo_nit).to_have_value(re.compile(re.escape(EMPRESA_NOMBRE)))
+
+    # --- Pagar el total en Efectivo (forma de pago por defecto) ---
+    ventana_pago.locator('textarea[name="tf_detalle"]').fill("PRUEBA AUTOMATIZADA")
+    campo_valor_1 = page.locator('input[name="tf_valorapagar1"]')
+    campo_valor_1.click()
+    campo_valor_1.fill(str(valor_total))
+    expect(campo_valor_1).to_have_value(str(valor_total))
+
+    ventana_pago.get_by_role("button", name="Pagar", exact=True).click()
+
+    # Diálogo opcional "Seguimiento al paciente".
+    boton_cancelar_seguimiento = page.get_by_role("button", name="Cancelar")
+    try:
+        expect(boton_cancelar_seguimiento).to_be_visible(timeout=5000)
+        boton_cancelar_seguimiento.click()
+    except AssertionError:
+        pass
+
+    # El procedimiento debe quedar sin saldo.
+    expect(page.locator("#labelPendiente")).to_have_text(
+        PENDIENTE_EN_CERO, timeout=10000
+    )

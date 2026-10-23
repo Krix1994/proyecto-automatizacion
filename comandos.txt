@@ -13,8 +13,8 @@ CONFIGURACIÓN INICIAL (solo la primera vez, o en un equipo nuevo)
 2. Crea un archivo llamado ".env" en esta misma carpeta con este
    contenido (reemplaza por tus credenciales reales si son distintas):
 
-   DENTOS_USUARIO=krixy
-   DENTOS_PASSWORD=121212
+   DENTOS_USUARIO=tu_usuario
+   DENTOS_PASSWORD=tu_clave
    DENTOS_SUCURSAL=Bucaramanga
 
    Este archivo NO se sube a GitHub (está en .gitignore), así que cada
@@ -65,16 +65,28 @@ sistema. Si se quiere usar otra empresa, se cambian EMPRESA_BUSQUEDA y
 EMPRESA_NOMBRE al inicio de test_facturacion.py.)
 
 
-CORRER LAS 6 PRUEBAS QUE YA FUNCIONAN (tarda unos 4 minutos)
+CORRER SOLO LA PRUEBA DE COPAGO GENERANDO FACTURA (ya funciona, PASSED)
 ----------------------------------------------------------------------------
-python -m pytest test_plan_tratamiento.py test_facturacion.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
+python -m pytest test_copagos.py::test_cancelar_copago_generando_fra -v --headed
 
-(test_plan_tratamiento.py tiene 3 pruebas y test_facturacion.py otras 3.)
+(Agrega el procedimiento IMPLANTE al plan de ALEXANDRA MARIA, paga el copago
+y comprueba que el pago nuevo sea una factura "FE-...". Cada corrida agrega
+un procedimiento y una factura en ese plan. La prueba del copago con Recibo
+de Caja, test_cancelar_copago_generando_rc, sigue PENDIENTE: en este ambiente
+el copago solo ofrece el concepto "Factura de contado".)
+
+
+CORRER LAS 7 PRUEBAS QUE YA FUNCIONAN (tarda unos 5 minutos)
+----------------------------------------------------------------------------
+python -m pytest test_plan_tratamiento.py test_facturacion.py test_copagos.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
+
+(test_plan_tratamiento.py y test_facturacion.py tienen 3 pruebas cada uno, y
+test_copagos.py tiene 1 que funciona y 1 pendiente.)
 
 Cuando vuelva a aparecer "PS C:\...>", ver el resultado de cada una:
-Select-String -Path salida.txt -Pattern "PASSED|FAILED|ERROR|passed|failed"
+Select-String -Path salida.txt -Pattern "PASSED|FAILED|SKIPPED|ERROR|passed|failed"
 
-Debe terminar con "6 passed".
+Debe terminar con "7 passed, 1 skipped" (la omitida es la del Recibo de Caja).
 
 
 CORRER UN ARCHIVO COMPLETO

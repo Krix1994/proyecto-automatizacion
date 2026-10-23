@@ -26,32 +26,63 @@ def test_crear_plan_tratamiento(pagina_con_paciente: Page):
     page.locator("#pt").click()
     page.get_by_role("button", name="Crear Plan de tratamiento (").click()
 
-    # El diálogo de confirmación con el tipo de afiliación (Particular)
-    # solo aparece la PRIMERA vez que se crea un plan para el paciente.
-    # Si el paciente ya tiene un plan (por ejemplo, de una corrida
-    # anterior de esta misma prueba), se entra directo a la pantalla del
-    # plan sin este diálogo. Por eso este bloque es opcional.
-    boton_aceptar = page.get_by_role("button", name="Aceptar")
-    try:
-        expect(boton_aceptar).to_be_visible(timeout=3000)
+    # Al pulsar "Crear Plan de tratamiento" sale la ventana "Seleccione un
+    # doctor" (con el botón Aceptar) y, al aceptarla, se abre la pantalla
+    # del nuevo plan. Antes se esperaba ese botón solo 3 s y, si la ventana
+    # tardaba más, se ignoraba. Ahora se espera hasta 30 s lo PRIMERO que
+    # aparezca: la ventana del doctor o el campo "Procedimiento".
+    boton_aceptar = page.get_by_role("button", name="Aceptar", exact=True)
+    campo_procedimiento = page.locator("#cb_proc")
+    boton_aceptar.or_(campo_procedimiento).first.wait_for(
+        state="visible", timeout=30000
+    )
+    if boton_aceptar.is_visible():
         boton_aceptar.click()
 
-        # Tipo de plan de afiliación: combo de ExtJS de solo lectura.
-        # NOTA: "#ext-gen24" es un id autogenerado que puede cambiar
-        # entre sesiones. Si esta línea falla, hay que volver a grabar
-        # este paso e inspeccionar el campo con DevTools.
-        page.locator("#ext-gen24").click()
-        opcion_particular = page.get_by_text("Particular")
-        expect(opcion_particular).to_be_visible(timeout=5000)
-        opcion_particular.click()
-    except AssertionError:
-        pass  # El paciente ya tenía un plan; no hizo falta el diálogo.
+        # Contrato del plan: debe quedar en "Particular". El campo se ubica
+        # por su "name" (solo existe en la pantalla del plan) y NO por el id
+        # autogenerado "#ext-gen24", que también existe en la pantalla
+        # anterior: el clic podía caer ahí antes del cambio de pantalla, la
+        # selección fallaba sin avisar (el error se ignoraba) y el contrato
+        # se quedaba en el que trae por defecto (p. ej. "Ong"), donde el
+        # procedimiento de esta prueba no aparece en la lista.
+        campo_contrato = page.locator('input[name="cb_contrato"]')
+        # Al abrirse la pantalla el campo está vacío unos instantes; se
+        # espera a que cargue el contrato antes de decidir si hay que
+        # cambiarlo.
+        expect(campo_contrato).not_to_have_value("", timeout=30000)
+        if campo_contrato.input_value() != "Particular":
+            campo_contrato.click()
+            opcion_particular = page.locator(".x-combo-list-item").filter(
+                has_text=re.compile(r"^\s*Particular\s*$")
+            )
+            expect(opcion_particular).to_be_visible(timeout=10000)
+            opcion_particular.click()
+            expect(campo_contrato).to_have_value("Particular", timeout=10000)
+
+            # A veces el sistema rechaza el cambio de contrato con el
+            # mensaje "No se pudo actualizar el contrato al plan de
+            # tratamiento." (limitación conocida del ambiente, ver
+            # test_generar_factura_descontando_anticipo). Se avisa pero no
+            # se falla: lo que valida esta prueba es crear el plan con
+            # su procedimiento.
+            error_contrato = page.get_by_text(
+                "No se pudo actualizar el contrato al plan de tratamiento."
+            )
+            try:
+                expect(error_contrato).to_be_visible(timeout=3000)
+                print(
+                    "\nADVERTENCIA: el sistema mostró 'No se pudo actualizar "
+                    "el contrato al plan de tratamiento.' (limitación "
+                    "conocida del ambiente)."
+                )
+            except AssertionError:
+                pass  # No hubo error; el contrato se actualizó bien.
 
     # Buscar y seleccionar un procedimiento. "#cb_proc" es un id fijo
     # (no autogenerado), así que es seguro usarlo directamente. A
     # diferencia del buscador de pacientes, este campo sí funciona bien
     # con fill() (confirmado con una grabación limpia).
-    campo_procedimiento = page.locator("#cb_proc")
     campo_procedimiento.click()
     campo_procedimiento.fill("nucleo")
     # El desplegable no parece refrescarse solo con fill(); forzamos el
@@ -65,12 +96,12 @@ def test_crear_plan_tratamiento(pagina_con_paciente: Page):
     expect(opcion_procedimiento).to_be_visible(timeout=10000)
     opcion_procedimiento.click()
 
-    # Cantidad del procedimiento.
-    # NOTA: "#ext-comp-1065" también es un id autogenerado; mismo riesgo
-    # que el anterior si cambia entre sesiones.
-    campo_cantidad = page.locator("#ext-comp-1065")
-    campo_cantidad.click()
-    campo_cantidad.fill("12")
+    # Diente del procedimiento. El id que se usaba antes ("#ext-comp-1065")
+    # corresponde en realidad al campo "Dientes" (no a "Cantidad"), así que
+    # se ubica por su "name" fijo y la cantidad se deja en 1.
+    campo_dientes = page.locator('input[name="tf_dientes"]')
+    campo_dientes.click()
+    campo_dientes.fill("12")
 
     # Agregar el procedimiento al plan.
     # El botón tiene la clase fija "btn_add" (confirmado con DevTools),
@@ -78,12 +109,21 @@ def test_crear_plan_tratamiento(pagina_con_paciente: Page):
     # cambia entre sesiones.
     page.locator("button.btn_add").click()
 
+    # Diálogo opcional "Seguimiento al paciente" después de agregar.
+    boton_cancelar_seguimiento = page.get_by_role("button", name="Cancelar")
+    try:
+        expect(boton_cancelar_seguimiento).to_be_visible(timeout=3000)
+        boton_cancelar_seguimiento.click()
+    except AssertionError:
+        pass
+
     # No hace falta un botón de "Guardar": el plan queda creado
-    # automáticamente al agregar el procedimiento. Verificamos que
-    # el procedimiento aparezca en la lista del plan.
-    expect(page.get_by_text("NUCLEO ADHESIVO", exact=True).first).to_be_visible(
-        timeout=10000
-    )
+    # automáticamente al agregar el procedimiento. Verificamos que el
+    # procedimiento aparezca como una fila del listado del plan.
+    fila_procedimiento = page.get_by_role(
+        "row", name=re.compile("NUCLEO ADHESIVO")
+    ).last
+    expect(fila_procedimiento).to_be_visible(timeout=20000)
 
 
 def test_crear_anticipo_plan_tratamiento(pagina_con_paciente: Page):

@@ -12,6 +12,7 @@ import re
 import pytest
 from dotenv import load_dotenv
 from playwright.sync_api import Page, expect
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 # Carga las variables definidas en el archivo .env (que NO se sube a
 # GitHub, ver .gitignore) hacia el entorno, para que os.environ.get(...)
@@ -24,6 +25,12 @@ SUCURSAL = os.environ.get("DENTOS_SUCURSAL", "Bucaramanga")
 
 URL_LOGIN = "https://release.dentos.co/auth/login"
 
+# El login a veces no completa (la página vuelve a mostrar el formulario
+# vacío y la prueba se quedaba esperando el menú "Pacientes" hasta
+# agotar el tiempo). Ahora se reintenta antes de rendirse.
+INTENTOS_LOGIN = 3
+ESPERA_MENU_MS = 25000
+
 # Paciente de prueba usado por defecto en la mayoría de los tests.
 NOMBRE_PACIENTE = "ADRIANA CATHERINE"
 
@@ -31,6 +38,48 @@ NOMBRE_PACIENTE = "ADRIANA CATHERINE"
 # pruebas que empiezan a fallar en NOMBRE_PACIENTE por saturación de
 # datos (muchos planes/anticipos creados de tanto correr las pruebas).
 NOMBRE_PACIENTE_ALT = "CARMEN CAUSEL MESTRA"
+
+
+def _iniciar_sesion(page: Page) -> None:
+    """Llena el formulario de login y pulsa "Ingresar"."""
+    page.goto(URL_LOGIN)
+    page.get_by_role("textbox", name="Usuario").click()
+    page.get_by_role("textbox", name="Usuario").fill(USUARIO)
+    page.get_by_role("textbox", name="Contraseña").click()
+    page.get_by_role("textbox", name="Contraseña").fill(PASSWORD)
+    page.locator("#id_sucursal").select_option(label=SUCURSAL)
+    page.get_by_role("button", name="Ingresar").click()
+
+
+def _describir_pagina(page: Page) -> str:
+    """URL y texto visible de la página, para saber por qué falló el login."""
+    try:
+        texto = " ".join(page.locator("body").inner_text(timeout=3000).split())
+    except Exception:
+        texto = "(no se pudo leer el texto de la página)"
+    return f"url={page.url!r}; texto de la página: {texto[:300]!r}"
+
+
+def _login_con_reintentos(page: Page) -> Page:
+    """
+    Inicia sesión y espera a que aparezca el menú "Pacientes", que confirma
+    que se entró. Si no aparece, repite el login (hasta INTENTOS_LOGIN
+    veces). Si ninguno funciona, falla indicando qué mostraba la página.
+    """
+    menu_pacientes = page.get_by_title("Pacientes").get_by_role("link")
+    estado_final = ""
+    for intento in range(1, INTENTOS_LOGIN + 1):
+        try:
+            _iniciar_sesion(page)
+            expect(menu_pacientes).to_be_visible(timeout=ESPERA_MENU_MS)
+            return page
+        except (AssertionError, PlaywrightTimeoutError):
+            estado_final = f"intento {intento}: {_describir_pagina(page)}"
+            print(f"\nLogin sin completar. {estado_final}")
+    raise AssertionError(
+        f"No se pudo iniciar sesión en Dentos tras {INTENTOS_LOGIN} "
+        f"intentos. Último estado -> {estado_final}"
+    )
 
 
 @pytest.fixture
@@ -46,15 +95,7 @@ def pagina_logueada(page: Page) -> Page:
     """
     page.set_default_timeout(60000)  # 60s: el sitio a veces tarda en cargar
 
-    page.goto(URL_LOGIN)
-    page.get_by_role("textbox", name="Usuario").click()
-    page.get_by_role("textbox", name="Usuario").fill(USUARIO)
-    page.get_by_role("textbox", name="Contraseña").click()
-    page.get_by_role("textbox", name="Contraseña").fill(PASSWORD)
-    page.locator("#id_sucursal").select_option(label=SUCURSAL)
-    page.get_by_role("button", name="Ingresar").click()
-
-    return page
+    return _login_con_reintentos(page)
 
 
 def buscar_y_abrir_paciente(pagina_logueada: Page, nombre_paciente: str) -> Page:

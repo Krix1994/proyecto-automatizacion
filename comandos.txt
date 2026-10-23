@@ -41,6 +41,34 @@ CORRER SOLO LA PRUEBA DE FACTURA CON 2 FORMAS DE PAGO (ya funciona, PASSED)
 python -m pytest test_facturacion.py::test_factura_dos_formas_pago -v --headed
 
 
+CORRER SOLO LA PRUEBA DE FACTURA APLICANDO DESCUENTO (ya funciona, PASSED)
+----------------------------------------------------------------------------
+python -m pytest test_facturacion.py::test_factura_aplicar_descuento -v --headed
+
+(Aplica un descuento del 10% al procedimiento y paga lo que queda.)
+
+
+CORRER SOLO LA PRUEBA DE FACTURA POR EMPRESA (ya funciona, PASSED)
+----------------------------------------------------------------------------
+python -m pytest test_facturacion.py::test_factura_por_empresa -v --headed
+
+(Factura a nombre de la empresa YOMAUTOS, que ya debe existir en el
+sistema. Si se quiere usar otra empresa, se cambian EMPRESA_BUSQUEDA y
+EMPRESA_NOMBRE al inicio de test_facturacion.py.)
+
+
+CORRER LAS 5 PRUEBAS QUE YA FUNCIONAN (tarda varios minutos)
+----------------------------------------------------------------------------
+python -m pytest test_plan_tratamiento.py::test_crear_anticipo_plan_tratamiento test_plan_tratamiento.py::test_generar_factura_descontando_anticipo test_facturacion.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
+
+Cuando vuelva a aparecer "PS C:\...>", ver el resultado de cada una:
+Select-String -Path salida.txt -Pattern "PASSED|FAILED|ERROR|passed|failed"
+
+Debe terminar con "5 passed". Si una sale en ERROR "at setup" y la
+pantalla quedó en el login, es el problema intermitente de entrada:
+repetir SOLO esa prueba.
+
+
 CORRER UN ARCHIVO COMPLETO
 ----------------------------------
 python -m pytest test_facturacion.py -v --headed
@@ -65,6 +93,14 @@ Luego busca la carpeta "test-results" en el Explorador de VS Code,
 y abre el archivo .png más reciente.
 
 
+GUARDAR EL RESULTADO EN UN ARCHIVO Y VER SOLO EL FINAL
+----------------------------------------------------------------------------
+Agrega al final del comando:   > salida.txt 2>&1
+(la terminal no mostrará nada mientras corre; esperar a que vuelva "PS C:\...>")
+Luego ver el final del resultado:
+Get-Content salida.txt -Tail 8
+
+
 SI NECESITAS GRABAR LOS PASOS DE UNA PRUEBA NUEVA
 ----------------------------------------------------------
 python -m playwright codegen https://release.dentos.co/auth/login
@@ -80,3 +116,7 @@ git push
 === Notas ===
 - Repite esto cada vez que avances en las pruebas.
 - El mensaje del commit debe describir brevemente qué cambió.
+- Antes de "git add ." borrar salida.txt (es solo el resultado de una
+  corrida): con "git add ." se subiría a GitHub sin necesidad.
+- Para comprobar que quedó todo guardado: "git status" debe decir
+  "nothing to commit, working tree clean".

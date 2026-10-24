@@ -65,28 +65,54 @@ sistema. Si se quiere usar otra empresa, se cambian EMPRESA_BUSQUEDA y
 EMPRESA_NOMBRE al inicio de test_facturacion.py.)
 
 
-CORRER SOLO LA PRUEBA DE COPAGO GENERANDO FACTURA (ya funciona, PASSED)
+CORRER SOLO LA PRUEBA DE COPAGO CON RECIBO DE CAJA (ya funciona, PASSED)
+----------------------------------------------------------------------------
+python -m pytest test_copagos.py::test_cancelar_copago_generando_rc -v --headed
+
+(Paciente ABEL IBAÑES CARABALLO, plan 4119. Pone la opción del sistema
+"Configurar documento copago" en 0, agrega el procedimiento IMPLANTE, paga el
+copago y comprueba que el pago nuevo sea un recibo de caja: número solo de
+dígitos y comprobante en /reciboscaja/.)
+
+
+CORRER SOLO LA PRUEBA DE COPAGO CON FACTURA (ya funciona, PASSED)
 ----------------------------------------------------------------------------
 python -m pytest test_copagos.py::test_cancelar_copago_generando_fra -v --headed
 
-(Agrega el procedimiento IMPLANTE al plan de ALEXANDRA MARIA, paga el copago
-y comprueba que el pago nuevo sea una factura "FE-...". Cada corrida agrega
-un procedimiento y una factura en ese plan. La prueba del copago con Recibo
-de Caja, test_cancelar_copago_generando_rc, sigue PENDIENTE: en este ambiente
-el copago solo ofrece el concepto "Factura de contado".)
+(Paciente ALEXANDRA MARIA RINCON PINEDA, plan 2746. Pone la opción del sistema
+"Configurar documento copago" en 1, agrega el procedimiento IMPLANTE, paga el
+copago y comprueba que el pago nuevo sea una factura: "FE-..." y comprobante
+en /imprimirpagopac/.)
+
+IMPORTANTE sobre las dos pruebas de copago:
+- La opción "Configurar documento copago" (Administración > Opciones del
+  sistema) decide el documento: 0 = recibo de caja, 1 = factura de contado.
+- Cada prueba la cambia y la RESTAURA al terminar, aunque falle. No cortarlas
+  con Ctrl+C a mitad de la corrida. Si una corrida se corta, revisar a mano que
+  la opción haya quedado en 1 (su valor normal).
+- Cada corrida agrega un procedimiento IMPLANTE y un pago en cada plan.
+- Hay más de una paciente "ALEXANDRA MARIA" y la prueba elige la de apellidos
+  RINCON PINEDA.
 
 
-CORRER LAS 7 PRUEBAS QUE YA FUNCIONAN (tarda unos 5 minutos)
+CORRER LAS 8 PRUEBAS QUE YA FUNCIONAN (tarda unos 6 minutos)
 ----------------------------------------------------------------------------
 python -m pytest test_plan_tratamiento.py test_facturacion.py test_copagos.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
 
-(test_plan_tratamiento.py y test_facturacion.py tienen 3 pruebas cada uno, y
-test_copagos.py tiene 1 que funciona y 1 pendiente.)
+(test_plan_tratamiento.py: 3 pruebas, test_facturacion.py: 3 pruebas y
+test_copagos.py: 2 pruebas.)
 
 Cuando vuelva a aparecer "PS C:\...>", ver el resultado de cada una:
 Select-String -Path salida.txt -Pattern "PASSED|FAILED|SKIPPED|ERROR|passed|failed"
 
-Debe terminar con "7 passed, 1 skipped" (la omitida es la del Recibo de Caja).
+Debe terminar con "8 passed".
+
+
+VER UNA PRUEBA EN CÁMARA LENTA (para ver qué hace paso a paso)
+----------------------------------------------------------------------------
+Agregar al final del comando:   --slowmo 1000
+(una pausa de 1 segundo entre cada acción) y "-s" para ver los mensajes. Ejemplo:
+python -m pytest test_copagos.py -v -s --headed --slowmo 1000
 
 
 CORRER UN ARCHIVO COMPLETO

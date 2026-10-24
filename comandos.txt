@@ -25,7 +25,7 @@ CORRER TODAS LAS PRUEBAS (las 13)
 ----------------------------------
 python -m pytest -v --headed
 
-(Las 13 pruebas pasan. Tarda unos 12 minutos. Las pruebas de impresión no se
+(Las 13 pruebas pasan. Tarda unos 9 minutos. Las pruebas de impresión no se
 van a automatizar y se quitó test_impresion.py.)
 
 
@@ -123,7 +123,7 @@ IMPORTANTE sobre las pruebas de cotizaciones:
   se pueden borrar a mano con el ícono de eliminar.
 
 
-CORRER LAS 13 PRUEBAS (tarda unos 12 minutos)
+CORRER LAS 13 PRUEBAS (tarda unos 9 minutos)
 ----------------------------------------------------------------------------
 python -m pytest test_plan_tratamiento.py test_facturacion.py test_copagos.py test_cotizaciones.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
 

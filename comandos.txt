@@ -21,9 +21,13 @@ CONFIGURACIÓN INICIAL (solo la primera vez, o en un equipo nuevo)
    persona que use el proyecto debe crear el suyo.
 
 
-CORRER TODAS LAS PRUEBAS (las 15)
+CORRER TODAS LAS PRUEBAS (las 13)
 ----------------------------------
 python -m pytest -v --headed
+
+(Las 5 de test_cotizaciones.py todavía están pendientes y salen como
+omitidas ("skipped"). Las pruebas de impresión no se van a automatizar y
+se quitó test_impresion.py.)
 
 
 CORRER SOLO LA PRUEBA DE CREAR PLAN DE TRATAMIENTO (ya funciona, PASSED)
@@ -120,7 +124,6 @@ CORRER UN ARCHIVO COMPLETO
 python -m pytest test_facturacion.py -v --headed
 python -m pytest test_copagos.py -v --headed
 python -m pytest test_cotizaciones.py -v --headed
-python -m pytest test_impresion.py -v --headed
 python -m pytest test_plan_tratamiento.py -v --headed
 
 

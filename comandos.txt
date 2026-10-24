@@ -25,9 +25,8 @@ CORRER TODAS LAS PRUEBAS (las 13)
 ----------------------------------
 python -m pytest -v --headed
 
-(Las 5 de test_cotizaciones.py todavía están pendientes y salen como
-omitidas ("skipped"). Las pruebas de impresión no se van a automatizar y
-se quitó test_impresion.py.)
+(Las 13 pruebas pasan. Tarda unos 12 minutos. Las pruebas de impresión no se
+van a automatizar y se quitó test_impresion.py.)
 
 
 CORRER SOLO LA PRUEBA DE CREAR PLAN DE TRATAMIENTO (ya funciona, PASSED)
@@ -99,17 +98,42 @@ IMPORTANTE sobre las dos pruebas de copago:
   RINCON PINEDA.
 
 
-CORRER LAS 8 PRUEBAS QUE YA FUNCIONAN (tarda unos 6 minutos)
+CORRER SOLO LAS PRUEBAS DE COTIZACIONES (ya funcionan, PASSED)
 ----------------------------------------------------------------------------
-python -m pytest test_plan_tratamiento.py test_facturacion.py test_copagos.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
+python -m pytest test_cotizaciones.py -v --headed
 
-(test_plan_tratamiento.py: 3 pruebas, test_facturacion.py: 3 pruebas y
-test_copagos.py: 2 pruebas.)
+O UNA POR UNA:
+python -m pytest test_cotizaciones.py::test_crear_cotizacion -v --headed
+python -m pytest test_cotizaciones.py::test_imprimir_cotizacion -v --headed
+python -m pytest test_cotizaciones.py::test_convertir_cotizacion_a_ptt -v --headed
+python -m pytest test_cotizaciones.py::test_modificar_cotizacion -v --headed
+python -m pytest test_cotizaciones.py::test_eliminar_cotizacion -v --headed
+
+(Usan a la paciente ADRIANA CATHERINE. Cada prueba crea su propia cotización
+con el procedimiento NUCLEO ADHESIVO, la identifica por su número y, al
+terminar, la borra.)
+
+IMPORTANTE sobre las pruebas de cotizaciones:
+- Convertir crea un plan de tratamiento de verdad en cada corrida; esos
+  planes se acumulan en la lista de la paciente (no se borran solos).
+- Modificar es sensible a los tiempos: escribe un valor, lo confirma con Tab
+  y espera unos segundos entre pasos. Si falla con "el campo muestra 0",
+  repetirla; no tocar las pausas del archivo sin necesidad.
+- Si una corrida falla, pueden quedar cotizaciones de prueba en la lista;
+  se pueden borrar a mano con el ícono de eliminar.
+
+
+CORRER LAS 13 PRUEBAS (tarda unos 12 minutos)
+----------------------------------------------------------------------------
+python -m pytest test_plan_tratamiento.py test_facturacion.py test_copagos.py test_cotizaciones.py -v --headed --screenshot=only-on-failure > salida.txt 2>&1
+
+(test_plan_tratamiento.py: 3, test_facturacion.py: 3, test_copagos.py: 2 y
+test_cotizaciones.py: 5.)
 
 Cuando vuelva a aparecer "PS C:\...>", ver el resultado de cada una:
 Select-String -Path salida.txt -Pattern "PASSED|FAILED|SKIPPED|ERROR|passed|failed"
 
-Debe terminar con "8 passed".
+Debe terminar con "13 passed".
 
 
 VER UNA PRUEBA EN CÁMARA LENTA (para ver qué hace paso a paso)

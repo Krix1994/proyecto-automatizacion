@@ -10,7 +10,8 @@ Krixtina pide "ejecuta la prueba del tk X", "prueba el 6143" o "ejecuta las prue
 
 Datos fijos:
 - Krixtina Yomayuza: accountId `63b310b348b367d78a17595d`.
-- Campo Sprint: `customfield_10020`. No usar `customfield_10036` (Tester) en TS ni TX.
+- Campo Sprint: `customfield_10020`.
+- Campo Tester: `customfield_10036`. Solo se usa para **buscar** los tk de Krixtina; nunca se llena en TS ni TX.
 
 ## Paso 0 – Verificación
 1. Abrir https://testing.dentos.co/auth/login en el navegador integrado (pedir acceso al sitio con request_access si hace falta) y tomar una captura.
@@ -18,7 +19,7 @@ Datos fijos:
 
 ## Paso 1 – Buscar el tk
 - Si nombró un tk, usar esa clave (DTV1-XXXX).
-- Si no, JQL: `project = DTV1 AND assignee = "Krixtina Yomayuza" AND status = "Listos para pruebas"`. Si no devuelve nada, decírselo y preguntar qué tk probar (no tomar tk de otros por iniciativa propia).
+- Si no, buscar los tk donde Krixtina es la **Tester** (campo "Tester", `customfield_10036`; NO la persona asignada), con la JQL: `project = DTV1 AND cf[10036] = 63b310b348b367d78a17595d AND status = "Listos para pruebas"`. Si hay varios, mostrar la lista y preguntar por cuál empezar. Si no devuelve nada, decírselo y preguntar qué tk probar (no tomar tk de otros por iniciativa propia).
 - Leer el tk con getJiraIssue incluyendo `comment` e `issuelinks`. Base de los pasos: el comentario "Qué probar" **más reciente** del dev (anotar quién es el dev y su accountId: se le menciona tanto si hay hallazgos como si todo pasa). Revisar hallazgos previos de Krixtina y si ya hay TS/TX enlazados.
 - Detectar el sprint activo: JQL `project = DTV1 AND sprint in openSprints()` pidiendo `customfield_10020`; tomar el objeto con `state = "active"` (su `id` y `name`). Si no hay sprint abierto, decírselo a Krixtina y crear el TX sin sprint.
 
